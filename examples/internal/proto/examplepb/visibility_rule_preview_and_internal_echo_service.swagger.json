@@ -147,6 +147,17 @@
               "VISIBILITY_ENUM_PREVIEW"
             ],
             "default": "VISIBILITY_ENUM_UNSPECIFIED"
+          },
+          {
+            "name": "ahiddenDefaultEnum",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED",
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_VISIBLE"
+            ],
+            "default": "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED"
           }
         ],
         "tags": [
@@ -281,6 +292,17 @@
               "VISIBILITY_ENUM_PREVIEW"
             ],
             "default": "VISIBILITY_ENUM_UNSPECIFIED"
+          },
+          {
+            "name": "ahiddenDefaultEnum",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED",
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_VISIBLE"
+            ],
+            "default": "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED"
           }
         ],
         "tags": [
@@ -415,6 +437,17 @@
               "VISIBILITY_ENUM_PREVIEW"
             ],
             "default": "VISIBILITY_ENUM_UNSPECIFIED"
+          },
+          {
+            "name": "ahiddenDefaultEnum",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED",
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_VISIBLE"
+            ],
+            "default": "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED"
           }
         ],
         "tags": [
@@ -430,7 +463,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/examplepbVisibilityRuleSimpleMessage"
+              "$ref": "#/definitions/examplepbVisibilityRuleMessageInPreviewMethod"
             }
           },
           "default": {
@@ -549,6 +582,17 @@
               "VISIBILITY_ENUM_PREVIEW"
             ],
             "default": "VISIBILITY_ENUM_UNSPECIFIED"
+          },
+          {
+            "name": "ahiddenDefaultEnum",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED",
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_VISIBLE"
+            ],
+            "default": "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED"
           }
         ],
         "tags": [
@@ -683,6 +727,17 @@
               "VISIBILITY_ENUM_PREVIEW"
             ],
             "default": "VISIBILITY_ENUM_UNSPECIFIED"
+          },
+          {
+            "name": "ahiddenDefaultEnum",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED",
+              "VISIBILITY_ENUM_HIDDEN_DEFAULT_VISIBLE"
+            ],
+            "default": "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED"
           }
         ],
         "tags": [
@@ -702,6 +757,14 @@
       ],
       "default": "VISIBILITY_ENUM_UNSPECIFIED"
     },
+    "VisibilityRuleSimpleMessageVisibilityEnumHiddenDefault": {
+      "type": "string",
+      "enum": [
+        "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED",
+        "VISIBILITY_ENUM_HIDDEN_DEFAULT_VISIBLE"
+      ],
+      "default": "VISIBILITY_ENUM_HIDDEN_DEFAULT_UNSPECIFIED"
+    },
     "examplepbVisibilityRuleEmbedded": {
       "type": "object",
       "properties": {
@@ -720,6 +783,29 @@
         }
       },
       "description": "Embedded represents a message embedded in SimpleMessage."
+    },
+    "examplepbVisibilityRuleEnumInPreviewMethod": {
+      "type": "string",
+      "enum": [
+        "VISIBILITY_RULE_ENUM_IN_PREVIEW_METHOD_UNSPECIFIED"
+      ],
+      "default": "VISIBILITY_RULE_ENUM_IN_PREVIEW_METHOD_UNSPECIFIED",
+      "description": "EnumInPreviewMethod doesn't define its own visibility restrictions,\nbut is only included in a method marked as \"PREVIEW\", so it will only\nappear if `visibility_restriction_selectors` include \"PREVIEW\"."
+    },
+    "examplepbVisibilityRuleMessageInPreviewMethod": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "subMessage": {
+          "$ref": "#/definitions/examplepbVisibilityRuleSubMessageInPreviewMethod"
+        },
+        "enum": {
+          "$ref": "#/definitions/examplepbVisibilityRuleEnumInPreviewMethod"
+        }
+      },
+      "description": "MessageInPreviewMethod doesn't define its own visibility restrictions,\nbut is only included in a method marked as \"PREVIEW\", so it will only\nappear if `visibility_restriction_selectors` include \"PREVIEW\"."
     },
     "examplepbVisibilityRuleSimpleMessage": {
       "type": "object",
@@ -757,9 +843,21 @@
         },
         "anEnum": {
           "$ref": "#/definitions/VisibilityRuleSimpleMessageVisibilityEnum"
+        },
+        "ahiddenDefaultEnum": {
+          "$ref": "#/definitions/VisibilityRuleSimpleMessageVisibilityEnumHiddenDefault"
         }
       },
       "description": "SimpleMessage represents a simple message sent to the Echo service."
+    },
+    "examplepbVisibilityRuleSubMessageInPreviewMethod": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "description": "SubMessageInPreviewMethod doesn't define its own visibility restrictions,\nbut is only included in a method marked as \"PREVIEW\", so it will only\nappear if `visibility_restriction_selectors` include \"PREVIEW\"."
     },
     "protobufAny": {
       "type": "object",
@@ -783,6 +881,7 @@
         "details": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
         }

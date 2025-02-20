@@ -42,6 +42,7 @@ type ExamplepbABitOfEverything struct {
 	OneofEmpty *interface{} `json:"oneofEmpty,omitempty"`
 	OneofString string `json:"oneofString,omitempty"`
 	MapValue map[string]ExamplepbNumericEnum `json:"mapValue,omitempty"`
+	// Map of string description.
 	MappedStringValue map[string]string `json:"mappedStringValue,omitempty"`
 	MappedNestedValue map[string]ABitOfEverythingNested `json:"mappedNestedValue,omitempty"`
 	NonConventionalNameValue string `json:"nonConventionalNameValue,omitempty"`
@@ -61,4 +62,19 @@ type ExamplepbABitOfEverything struct {
 	RequiredStringViaFieldBehaviorAnnotation string `json:"requiredStringViaFieldBehaviorAnnotation"`
 	OutputOnlyStringViaFieldBehaviorAnnotation string `json:"outputOnlyStringViaFieldBehaviorAnnotation,omitempty"`
 	OptionalStringValue string `json:"optionalStringValue,omitempty"`
+	// Only digits are allowed.
+	ProductId []string `json:"productId,omitempty"`
+	OptionalStringField string `json:"optionalStringField,omitempty"`
+	RequiredStringField1 string `json:"requiredStringField1"`
+	RequiredStringField2 string `json:"requiredStringField2"`
+	RequiredFieldBehaviorJsonNameCustom string `json:"required_field_behavior_json_name_custom"`
+	RequiredFieldSchemaJsonNameCustom string `json:"required_field_schema_json_name_custom"`
+	TrailingOnly string `json:"trailingOnly,omitempty"`
+	// Trailing only dot.
+	TrailingOnlyDot string `json:"trailingOnlyDot,omitempty"`
+	// Trailing both.
+	TrailingBoth string `json:"trailingBoth,omitempty"`
+	// This is an example of a multi-line comment.  Trailing multiline.
+	TrailingMultiline string `json:"trailingMultiline,omitempty"`
+	Uuids []string `json:"uuids,omitempty"`
 }

@@ -42,7 +42,7 @@ message HelloReply {
 }
 ```
 
-See [a_bit_of_everything.proto](https://github.com/grpc-ecosystem/grpc-gateway/blob/master/examples/internal/proto/examplepb/a_bit_of_everything.proto) for examples of more annotations you can add to customize gateway behavior.
+See [a_bit_of_everything.proto](https://github.com/grpc-ecosystem/grpc-gateway/blob/main/examples/internal/proto/examplepb/a_bit_of_everything.proto) for examples of more annotations you can add to customize gateway behavior.
 
 ## Generating the gRPC-Gateway stubs
 
@@ -55,13 +55,13 @@ We'll need to add the gRPC-Gateway generator to the generation configuration:
 ```yaml
 version: v1
 plugins:
-  - name: go
+  - plugin: go
     out: proto
     opt: paths=source_relative
-  - name: go-grpc
+  - plugin: go-grpc
     out: proto
     opt: paths=source_relative,require_unimplemented_servers=false
-  - name: grpc-gateway
+  - plugin: grpc-gateway
     out: proto
     opt: paths=source_relative
 ```
@@ -161,10 +161,8 @@ func main() {
 
 	// Create a client connection to the gRPC server we just started
 	// This is where the gRPC-Gateway proxies the requests
-	conn, err := grpc.DialContext(
-		context.Background(),
+	conn, err := grpc.NewClient(
 		"0.0.0.0:8080",
-		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {

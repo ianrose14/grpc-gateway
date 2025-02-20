@@ -11,10 +11,10 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime/internal/examplepb"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/utilities"
-	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
+	field_mask "google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -94,6 +94,7 @@ func TestPopulateParameters(t *testing.T) {
 	durationStr := durationT.String()
 	durationPb := durationpb.New(durationT)
 
+	optionalStr := "str"
 	fieldmaskStr := "float_value,double_value"
 	fieldmaskPb := &field_mask.FieldMask{Paths: []string{"float_value", "double_value"}}
 
@@ -134,6 +135,7 @@ func TestPopulateParameters(t *testing.T) {
 				"string_value":           {"str"},
 				"bytes_value":            {"YWJjMTIzIT8kKiYoKSctPUB-"},
 				"repeated_value":         {"a", "b", "c"},
+				"optional_value":         {optionalStr},
 				"repeated_message":       {"1", "2", "3"},
 				"enum_value":             {"1"},
 				"repeated_enum":          {"1", "2", "0"},
@@ -184,21 +186,22 @@ func TestPopulateParameters(t *testing.T) {
 				StringValue:        "str",
 				BytesValue:         []byte("abc123!?$*&()'-=@~"),
 				RepeatedValue:      []string{"a", "b", "c"},
+				OptionalValue:      &optionalStr,
 				RepeatedMessage:    []*wrapperspb.UInt64Value{{Value: 1}, {Value: 2}, {Value: 3}},
 				EnumValue:          examplepb.EnumValue_Y,
 				RepeatedEnum:       []examplepb.EnumValue{examplepb.EnumValue_Y, examplepb.EnumValue_Z, examplepb.EnumValue_X},
 				TimestampValue:     timePb,
 				DurationValue:      durationPb,
 				FieldmaskValue:     fieldmaskPb,
-				WrapperFloatValue:  &wrapperspb.FloatValue{Value: 1.5},
-				WrapperDoubleValue: &wrapperspb.DoubleValue{Value: 2.5},
-				WrapperInt64Value:  &wrapperspb.Int64Value{Value: -1},
-				WrapperInt32Value:  &wrapperspb.Int32Value{Value: -2},
-				WrapperUInt64Value: &wrapperspb.UInt64Value{Value: 3},
-				WrapperUInt32Value: &wrapperspb.UInt32Value{Value: 4},
-				WrapperBoolValue:   &wrapperspb.BoolValue{Value: true},
-				WrapperStringValue: &wrapperspb.StringValue{Value: "str"},
-				WrapperBytesValue:  &wrapperspb.BytesValue{Value: []byte("abc123!?$*&()'-=@~")},
+				WrapperFloatValue:  wrapperspb.Float(1.5),
+				WrapperDoubleValue: wrapperspb.Double(2.5),
+				WrapperInt64Value:  wrapperspb.Int64(-1),
+				WrapperInt32Value:  wrapperspb.Int32(-2),
+				WrapperUInt64Value: wrapperspb.UInt64(3),
+				WrapperUInt32Value: wrapperspb.UInt32(4),
+				WrapperBoolValue:   wrapperspb.Bool(true),
+				WrapperStringValue: wrapperspb.String("str"),
+				WrapperBytesValue:  wrapperspb.Bytes([]byte("abc123!?$*&()'-=@~")),
 				MapValue: map[string]string{
 					"key":         "value",
 					"second":      "bar",
@@ -269,15 +272,15 @@ func TestPopulateParameters(t *testing.T) {
 				TimestampValue:     timePb,
 				DurationValue:      durationPb,
 				FieldmaskValue:     fieldmaskPb,
-				WrapperFloatValue:  &wrapperspb.FloatValue{Value: 1.5},
-				WrapperDoubleValue: &wrapperspb.DoubleValue{Value: 2.5},
-				WrapperInt64Value:  &wrapperspb.Int64Value{Value: -1},
-				WrapperInt32Value:  &wrapperspb.Int32Value{Value: -2},
-				WrapperUInt64Value: &wrapperspb.UInt64Value{Value: 3},
-				WrapperUInt32Value: &wrapperspb.UInt32Value{Value: 4},
-				WrapperBoolValue:   &wrapperspb.BoolValue{Value: true},
-				WrapperStringValue: &wrapperspb.StringValue{Value: "str"},
-				WrapperBytesValue:  &wrapperspb.BytesValue{Value: []byte("bytes")},
+				WrapperFloatValue:  wrapperspb.Float(1.5),
+				WrapperDoubleValue: wrapperspb.Double(2.5),
+				WrapperInt64Value:  wrapperspb.Int64(-1),
+				WrapperInt32Value:  wrapperspb.Int32(-2),
+				WrapperUInt64Value: wrapperspb.UInt64(3),
+				WrapperUInt32Value: wrapperspb.UInt32(4),
+				WrapperBoolValue:   wrapperspb.Bool(true),
+				WrapperStringValue: wrapperspb.String("str"),
+				WrapperBytesValue:  wrapperspb.Bytes([]byte("bytes")),
 				StructValueValue:   structValueValues[1],
 				StructValue:        structValues[1],
 			},
@@ -478,6 +481,26 @@ func TestPopulateParameters(t *testing.T) {
 			wanterr: errors.New("field already set for oneof \"oneof_value\""),
 		},
 		{
+			// Don't allow setting a oneof more than once
+			values: url.Values{
+				"nested_oneof_int32_value":          {"10"},
+				"nested_oneof_value_one.int32Value": {"-1"},
+			},
+			filter:  utilities.NewDoubleArray(nil),
+			want:    &examplepb.Proto3Message{},
+			wanterr: errors.New("field already set for oneof \"nested_oneof_value\""),
+		},
+		{
+			// Don't allow setting a oneof more than once
+			values: url.Values{
+				"nested_oneof_value_one.int32Value": {"-1"},
+				"nested_oneof_int32_value":          {"10"},
+			},
+			filter:  utilities.NewDoubleArray(nil),
+			want:    &examplepb.Proto3Message{},
+			wanterr: errors.New("field already set for oneof \"nested_oneof_value\""),
+		},
+		{
 			// Error when there are too many values
 			values: url.Values{
 				"uint64_value": {"1", "2"},
@@ -494,6 +517,14 @@ func TestPopulateParameters(t *testing.T) {
 			filter:  utilities.NewDoubleArray(nil),
 			want:    &examplepb.Proto3Message{},
 			wanterr: errors.New("invalid path: \"repeated_message\" is not a message"),
+		},
+		{
+			values: url.Values{
+				"timestampValue": {"0000-01-01T00:00:00.00Z"},
+			},
+			filter:  utilities.NewDoubleArray(nil),
+			want:    &examplepb.Proto3Message{},
+			wanterr: errors.New(`parsing field "timestamp_value": 0000-01-01T00:00:00.00Z before 0001-01-01`),
 		},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

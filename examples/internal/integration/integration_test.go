@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -24,12 +23,13 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/examples/internal/proto/sub"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	statuspb "google.golang.org/genproto/googleapis/rpc/status"
-	fieldmaskpb "google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -47,11 +47,16 @@ func TestEcho(t *testing.T) {
 			testEchoOneof(t, 8088, apiPrefix, "application/json")
 			testEchoOneof1(t, 8088, apiPrefix, "application/json")
 			testEchoOneof2(t, 8088, apiPrefix, "application/json")
+			testEchoPathParamOverwrite(t, 8088)
+			testEchoNested(t, 8088)
+			testEchoNestedOverride(t, 8088)
 			testEchoBody(t, 8088, apiPrefix, true)
 			testEchoBody(t, 8088, apiPrefix, false)
 			// Use SendHeader/SetTrailer without gRPC server https://github.com/grpc-ecosystem/grpc-gateway/issues/517#issuecomment-684625645
 			testEchoBody(t, 8089, apiPrefix, true)
 			testEchoBody(t, 8089, apiPrefix, false)
+			testEchoWithNonASCIIHeaderValues(t, 8088, apiPrefix)
+			testEchoWithInvalidHeaderKey(t, 8088, apiPrefix)
 		})
 	}
 }
@@ -68,9 +73,9 @@ func TestEchoUnauthorized(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 	msg := new(statuspb.Status)
@@ -94,7 +99,7 @@ func TestEchoPatch(t *testing.T) {
 		return
 	}
 
-	sent := examplepb.DynamicMessage{
+	sent := &examplepb.DynamicMessage{
 		StructField: &structpb.Struct{Fields: map[string]*structpb.Value{
 			"struct_key": {Kind: &structpb.Value_StructValue{
 				StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
@@ -108,7 +113,7 @@ func TestEchoPatch(t *testing.T) {
 			}},
 		}},
 	}
-	payload, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(&sent)
+	payload, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(sent)
 	if err != nil {
 		t.Fatalf("marshaler.Marshal(%#v) failed with %v; want success", payload, err)
 	}
@@ -125,9 +130,9 @@ func TestEchoPatch(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -142,12 +147,12 @@ func TestEchoPatch(t *testing.T) {
 		return
 	}
 	if diff := cmp.Diff(received.Body, sent, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 	if diff := cmp.Diff(received.UpdateMask, fieldmaskpb.FieldMask{Paths: []string{
 		"struct_field.struct_key.layered_struct_key", "value_field.value_struct_key",
 	}}, protocmp.Transform(), protocmp.SortRepeatedFields(received.UpdateMask, "paths")); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -224,9 +229,9 @@ func testEcho(t *testing.T, port int, apiPrefix string, contentType string) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -257,9 +262,9 @@ func testEchoOneof(t *testing.T, port int, apiPrefix string, contentType string)
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -290,9 +295,9 @@ func testEchoOneof1(t *testing.T, port int, apiPrefix string, contentType string
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -323,9 +328,9 @@ func testEchoOneof2(t *testing.T, port int, apiPrefix string, contentType string
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -345,6 +350,91 @@ func testEchoOneof2(t *testing.T, port int, apiPrefix string, contentType string
 
 	if value := resp.Header.Get("Content-Type"); value != contentType {
 		t.Errorf("Content-Type was %s, wanted %s", value, contentType)
+	}
+}
+
+func testEchoPathParamOverwrite(t *testing.T, port int) {
+	apiURL := fmt.Sprintf("http://localhost:%d/v1/example/echo/resource/my_resource_id?resourceId=bad_resource_id", port)
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		t.Errorf("http.Get(%q) failed with %v; want success", apiURL, err)
+		return
+	}
+	defer resp.Body.Close()
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
+		return
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+		t.Logf("%s", buf)
+	}
+
+	msg := new(examplepb.UnannotatedSimpleMessage)
+	if err := marshaler.Unmarshal(buf, msg); err != nil {
+		t.Errorf("marshaler.Unmarshal(%s, msg) failed with %v; want success", buf, err)
+		return
+	}
+	if got, want := msg.GetResourceId(), "my_resource_id"; got != want {
+		t.Errorf("msg.GetResourceId() = %q; want %q", got, want)
+	}
+}
+
+func testEchoNested(t *testing.T, port int) {
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/v1/example/echo/nested/my_nested_id?n_id.val=foo", port))
+	if err != nil {
+		t.Errorf("http.Get() failed with %v; want success", err)
+		return
+	}
+	defer resp.Body.Close()
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
+		return
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+		t.Logf("%s", buf)
+	}
+
+	msg := new(examplepb.UnannotatedSimpleMessage)
+	if err := marshaler.Unmarshal(buf, msg); err != nil {
+		t.Errorf("marshaler.Unmarshal(%s, msg) failed with %v; want success", buf, err)
+		return
+	}
+	if got, want := msg.NId.Val, "foo"; got != want {
+		t.Errorf("msg.NId.Val = %q; want %q", got, want)
+	}
+}
+
+func testEchoNestedOverride(t *testing.T, port int) {
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/v1/example/echo/nested/my_nested_id?nId.nId=bad_id", port))
+	if err != nil {
+		t.Errorf("http.Get() failed with %v; want success", err)
+		return
+	}
+	defer resp.Body.Close()
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
+		return
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+		t.Logf("%s", buf)
+	}
+
+	msg := new(examplepb.UnannotatedSimpleMessage)
+	if err := marshaler.Unmarshal(buf, msg); err != nil {
+		t.Errorf("marshaler.Unmarshal(%s, msg) failed with %v; want success", buf, err)
+		return
+	}
+	if got, want := msg.NId.NId, "my_nested_id"; got != want {
+		t.Errorf("msg.NId.NId = %q; want %q", got, want)
 	}
 }
 
@@ -372,9 +462,9 @@ func testEchoBody(t *testing.T, port int, apiPrefix string, useTrailers bool) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -389,7 +479,7 @@ func testEchoBody(t *testing.T, port int, apiPrefix string, useTrailers bool) {
 		return
 	}
 	if diff := cmp.Diff(&received, &sent, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 
 	if got, want := resp.Header.Get("Grpc-Metadata-Foo"), "foo1"; got != want {
@@ -432,6 +522,7 @@ func TestABE(t *testing.T) {
 	testABEDownload(t, 8088)
 	testABEBulkEcho(t, 8088)
 	testABEBulkEchoZeroLength(t, 8088)
+	testABEBulkEchoDurationError(t, 8088)
 	testAdditionalBindings(t, 8088)
 	testABERepeated(t, 8088)
 	testABEExists(t, 8088)
@@ -470,9 +561,9 @@ func testABECreate(t *testing.T, port int) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -491,7 +582,7 @@ func testABECreate(t *testing.T, port int) {
 	}
 	msg.Uuid = ""
 	if diff := cmp.Diff(msg, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -580,9 +671,9 @@ func testABECreateBody(t *testing.T, port int) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -601,7 +692,7 @@ func testABECreateBody(t *testing.T, port int) {
 	}
 	msg.Uuid = ""
 	if diff := cmp.Diff(msg, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -709,9 +800,9 @@ func testABEBulkCreate(t *testing.T, port int, useTrailers bool) {
 	}
 
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -792,9 +883,9 @@ func testABEBulkCreateWithError(t *testing.T, port int) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -819,9 +910,9 @@ func testABELookup(t *testing.T, port int) {
 		return
 	}
 	defer cresp.Body.Close()
-	buf, err := ioutil.ReadAll(cresp.Body)
+	buf, err := io.ReadAll(cresp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(cresp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(cresp.Body) failed with %v; want success", err)
 		return
 	}
 	if got, want := cresp.StatusCode, http.StatusOK; got != want {
@@ -844,9 +935,9 @@ func testABELookup(t *testing.T, port int) {
 	}
 	defer resp.Body.Close()
 
-	buf, err = ioutil.ReadAll(resp.Body)
+	buf, err = io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -856,7 +947,7 @@ func testABELookup(t *testing.T, port int) {
 		return
 	}
 	if diff := cmp.Diff(msg, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 
 	if got, want := resp.Header.Get("Grpc-Metadata-Uuid"), want.Uuid; got != want {
@@ -893,7 +984,7 @@ func TestABEPatch(t *testing.T) {
 		t.Fatalf("failed to issue PATCH request: %v", err)
 	}
 	if got, want := patchResp.StatusCode, http.StatusOK; got != want {
-		if body, err := ioutil.ReadAll(patchResp.Body); err != nil {
+		if body, err := io.ReadAll(patchResp.Body); err != nil {
 			t.Errorf("patchResp body couldn't be read: %v", err)
 		} else {
 			t.Errorf("patchResp.StatusCode= %d; want %d resp: %v", got, want, string(body))
@@ -1026,7 +1117,7 @@ func TestABEPatchBody(t *testing.T) {
 				t.Fatalf("failed to issue PATCH request: %v", err)
 			}
 			if got, want := patchResp.StatusCode, http.StatusOK; got != want {
-				if body, err := ioutil.ReadAll(patchResp.Body); err != nil {
+				if body, err := io.ReadAll(patchResp.Body); err != nil {
 					t.Errorf("patchResp body couldn't be read: %v", err)
 				} else {
 					t.Errorf("patchResp.StatusCode= %d; want %d resp: %v", got, want, string(body))
@@ -1036,7 +1127,7 @@ func TestABEPatchBody(t *testing.T) {
 			want, got := tc.want, getABE(t, port, uuid)
 			got.Uuid = "" // empty out uuid so we don't need to worry about it in comparisons
 			if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}
@@ -1061,7 +1152,7 @@ func postABE(t *testing.T, port int, abe *examplepb.ABitOfEverything) (uuid stri
 		t.Fatalf("http.Post(%q) failed with %v; want success", apiURL, err)
 		return
 	}
-	body, err := ioutil.ReadAll(postResp.Body)
+	body, err := io.ReadAll(postResp.Body)
 	if err != nil {
 		t.Fatalf("postResp body couldn't be read: %v", err)
 	}
@@ -1090,7 +1181,7 @@ func getABE(t *testing.T, port int, uuid string) *examplepb.ABitOfEverything {
 		t.Fatalf("getResp.StatusCode= %d, want %d. resp: %v", got, want, getResp)
 	}
 	var getRestatuspbody examplepb.ABitOfEverything
-	body, err := ioutil.ReadAll(getResp.Body)
+	body, err := io.ReadAll(getResp.Body)
 	if err != nil {
 		t.Fatalf("getResp body couldn't be read: %v", err)
 	}
@@ -1123,9 +1214,9 @@ func testABELookupNotFound(t *testing.T, port int, useTrailers bool) {
 	}
 	defer resp.Body.Close()
 
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -1323,7 +1414,7 @@ func testABEBulkEcho(t *testing.T, port int) {
 
 	wg.Wait()
 	if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -1356,6 +1447,98 @@ func testABEBulkEchoZeroLength(t *testing.T, port int) {
 	} else if err != io.EOF {
 		t.Errorf("dec.Decode(&item) failed with %v; want success", err)
 		return
+	}
+}
+
+func testABEBulkEchoDurationError(t *testing.T, port int) {
+	reqr, reqw := io.Pipe()
+	var wg sync.WaitGroup
+	var want []*durationpb.Duration
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer reqw.Close()
+		for i := 0; i < 10; i++ {
+			s := fmt.Sprintf("%d.123s", i)
+			if i == 5 {
+				s = "invalidDurationFormat"
+			}
+			buf, err := marshaler.Marshal(s)
+			if err != nil {
+				t.Errorf("marshaler.Marshal(%v) failed with %v; want success", s, err)
+				return
+			}
+			if _, err = reqw.Write(buf); err != nil {
+				t.Errorf("reqw.Write(%q) failed with %v; want success", string(buf), err)
+				return
+			}
+			want = append(want, &durationpb.Duration{Seconds: int64(i), Nanos: int32(0.123 * 1e9)})
+		}
+	}()
+	apiURL := fmt.Sprintf("http://localhost:%d/v1/example/a_bit_of_everything/echo_duration", port)
+	req, err := http.NewRequest("POST", apiURL, reqr)
+	if err != nil {
+		t.Errorf("http.NewRequest(%q, %q, reqr) failed with %v; want success", "POST", apiURL, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Transfer-Encoding", "chunked")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.Post(%q, %q, req) failed with %v; want success", apiURL, "application/json", err)
+		return
+	}
+	defer resp.Body.Close()
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+
+	var got []*durationpb.Duration
+	var invalidArgumentCount int
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		dec := marshaler.NewDecoder(resp.Body)
+		for i := 0; ; i++ {
+			var item struct {
+				Result json.RawMessage        `json:"result"`
+				Error  map[string]interface{} `json:"error"`
+			}
+			err := dec.Decode(&item)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Errorf("dec.Decode(&item) failed with %v; want success; i = %d", err, i)
+			}
+			if len(item.Error) != 0 {
+				code, ok := item.Error["code"].(float64)
+				if !ok {
+					t.Errorf("item.Error[code] not found or not a number: %#v; i = %d", item.Error, i)
+				} else if int32(code) == 3 {
+					invalidArgumentCount++
+				} else {
+					t.Errorf("item.Error[code] = %v; want 3; i = %d", code, i)
+				}
+				continue
+			}
+
+			msg := new(durationpb.Duration)
+			if err := marshaler.Unmarshal(item.Result, msg); err != nil {
+				t.Errorf("marshaler.Unmarshal(%q, msg) failed with %v; want success", item.Result, err)
+			}
+			got = append(got, msg)
+		}
+
+		if invalidArgumentCount != 1 {
+			t.Errorf("got %d errors with code 3; want exactly 1", invalidArgumentCount)
+		}
+	}()
+
+	wg.Wait()
+	if diff := cmp.Diff(got, want[:5], protocmp.Transform()); diff != "" {
+		t.Error(diff)
 	}
 }
 
@@ -1409,9 +1592,9 @@ func testAdditionalBindings(t *testing.T, port int) {
 		}
 
 		defer resp.Body.Close()
-		buf, err := ioutil.ReadAll(resp.Body)
+		buf, err := io.ReadAll(resp.Body)
 		if err != nil {
-			t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success; i=%d", err, i)
+			t.Errorf("io.ReadAll(resp.Body) failed with %v; want success; i=%d", err, i)
 			return
 		}
 		if got, want := resp.StatusCode, http.StatusOK; got != want {
@@ -1528,9 +1711,9 @@ func testABERepeated(t *testing.T, port int) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -1545,7 +1728,7 @@ func testABERepeated(t *testing.T, port int) {
 		return
 	}
 	if diff := cmp.Diff(msg, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -1570,6 +1753,31 @@ func TestTimeout(t *testing.T) {
 	defer resp.Body.Close()
 
 	if got, want := resp.StatusCode, http.StatusGatewayTimeout; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+}
+
+func TestInvalidTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+		return
+	}
+
+	apiURL := "http://localhost:8088/v2/example/timeout"
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		t.Errorf(`http.NewRequest("GET", %q, nil) failed with %v; want success`, apiURL, err)
+		return
+	}
+	req.Header.Set("Grpc-Timeout", "INVALID")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.DefaultClient.Do(%#v) failed with %v; want success", req, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
 		t.Errorf("resp.StatusCode = %d; want %d", got, want)
 	}
 }
@@ -1607,9 +1815,9 @@ func TestUnknownPath(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -1632,9 +1840,9 @@ func TestNotImplemented(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 	if got, want := resp.StatusCode, http.StatusNotImplemented; got != want {
@@ -1656,9 +1864,9 @@ func TestInvalidArgument(t *testing.T) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -1680,80 +1888,91 @@ func TestResponseBody(t *testing.T) {
 }
 
 func testResponseBody(t *testing.T, port int) {
-	tests := []struct {
-		name       string
-		url        string
-		wantStatus int
-		wantBody   string
-	}{{
-		name:       "unary case",
-		url:        "http://localhost:%d/responsebody/foo",
-		wantStatus: http.StatusOK,
-		wantBody:   `{"data":"foo"}`,
-	}}
+	apiURL := fmt.Sprintf("http://localhost:%d/responsebody/foo", port)
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		t.Fatalf("http.Get(%q) failed with %v; want success", apiURL, err)
+	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			apiURL := fmt.Sprintf(tt.url, port)
-			resp, err := http.Get(apiURL)
-			if err != nil {
-				t.Fatalf("http.Get(%q) failed with %v; want success", apiURL, err)
-			}
+	defer resp.Body.Close()
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("io.ReadAll(resp.Body) failed with %v; want success", err)
+	}
 
-			defer resp.Body.Close()
-			buf, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				t.Fatalf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
-			}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+		t.Logf("%s", buf)
+	}
 
-			if got, want := resp.StatusCode, tt.wantStatus; got != want {
-				t.Errorf("resp.StatusCode = %d; want %d", got, want)
-				t.Logf("%s", buf)
-			}
-
-			if got, want := string(buf), tt.wantBody; got != want {
-				t.Errorf("response = %q; want %q", got, want)
-			}
-		})
+	if diff := cmp.Diff(string(buf), `{"data":"foo"}`); diff != "" {
+		t.Error(diff)
 	}
 }
 
 func TestResponseBodyStream(t *testing.T) {
-	tests := []struct {
-		name       string
-		url        string
-		wantStatus int
-		wantBody   []string
-	}{{
-		name:       "stream case",
-		url:        "http://localhost:%d/responsebody/stream/foo",
-		wantStatus: http.StatusOK,
-		wantBody:   []string{`{"result":{"data":"first foo"}}`, `{"result":{"data":"second foo"}}`},
-	}}
+	apiURL := "http://localhost:8088/responsebody/stream/foo"
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		t.Fatalf("http.Get(%q) failed with %v; want success", apiURL, err)
+	}
 
-	port := 8088
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			apiURL := fmt.Sprintf(tt.url, port)
-			resp, err := http.Get(apiURL)
-			if err != nil {
-				t.Fatalf("http.Get(%q) failed with %v; want success", apiURL, err)
-			}
+	defer resp.Body.Close()
+	body, err := readAll(resp.Body)
+	if err != nil {
+		t.Fatalf("readAll(resp.Body) failed with %v; want success", err)
+	}
 
-			defer resp.Body.Close()
-			body, err := readAll(resp.Body)
-			if err != nil {
-				t.Fatalf("readAll(resp.Body) failed with %v; want success", err)
-			}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
 
-			if got, want := resp.StatusCode, tt.wantStatus; got != want {
-				t.Errorf("resp.StatusCode = %d; want %d", got, want)
-			}
+	if diff := cmp.Diff(body, []string{`{"result":{"data":"first foo"}}`, `{"result":{"data":"second foo"}}`}); diff != "" {
+		t.Error(diff)
+	}
+}
 
-			if !reflect.DeepEqual(tt.wantBody, body) {
-				t.Errorf("response = %v; want %v", body, tt.wantBody)
-			}
-		})
+func TestResponseBodyStreamHttpBody(t *testing.T) {
+	apiURL := "http://localhost:8088/v1/example/download"
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		t.Fatalf("http.Get(%q) failed with %v; want success", apiURL, err)
+	}
+
+	defer resp.Body.Close()
+	body, err := readAll(resp.Body)
+	if err != nil {
+		t.Fatalf("readAll(resp.Body) failed with %v; want success", err)
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+
+	if diff := cmp.Diff(body, []string{"Hello 1", "Hello 2"}); diff != "" {
+		t.Error(diff)
+	}
+}
+
+func TestResponseBodyStreamHttpBodyError(t *testing.T) {
+	apiURL := "http://localhost:8088/v1/example/download?error=true"
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		t.Fatalf("http.Get(%q) failed with %v; want success", apiURL, err)
+	}
+
+	defer resp.Body.Close()
+	body, err := readAll(resp.Body)
+	if err != nil {
+		t.Fatalf("readAll(resp.Body) failed with %v; want success", err)
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+	}
+
+	if diff := cmp.Diff(body, []string{"Hello 1", "Hello 2", `{"error":{"code":3,"message":"error","details":[]}}`}); diff != "" {
+		t.Error(diff)
 	}
 }
 
@@ -1781,9 +2000,9 @@ func testResponseBodies(t *testing.T, port int) {
 		return
 	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 		return
 	}
 
@@ -1805,7 +2024,7 @@ func testResponseBodies(t *testing.T, port int) {
 		},
 	}
 	if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -1838,9 +2057,9 @@ func testResponseStrings(t *testing.T, port int) {
 			return
 		}
 		defer resp.Body.Close()
-		buf, err := ioutil.ReadAll(resp.Body)
+		buf, err := io.ReadAll(resp.Body)
 		if err != nil {
-			t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+			t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 			return
 		}
 
@@ -1857,7 +2076,7 @@ func testResponseStrings(t *testing.T, port int) {
 		}
 		want := []string{"hello", "foo"}
 		if diff := cmp.Diff(got, want); diff != "" {
-			t.Errorf(diff)
+			t.Error(diff)
 		}
 	})
 
@@ -1869,9 +2088,9 @@ func testResponseStrings(t *testing.T, port int) {
 			return
 		}
 		defer resp.Body.Close()
-		buf, err := ioutil.ReadAll(resp.Body)
+		buf, err := io.ReadAll(resp.Body)
 		if err != nil {
-			t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+			t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 			return
 		}
 
@@ -1888,7 +2107,7 @@ func testResponseStrings(t *testing.T, port int) {
 		}
 		want := []string{}
 		if diff := cmp.Diff(got, want); diff != "" {
-			t.Errorf(diff)
+			t.Error(diff)
 		}
 	})
 
@@ -1900,9 +2119,9 @@ func testResponseStrings(t *testing.T, port int) {
 			return
 		}
 		defer resp.Body.Close()
-		buf, err := ioutil.ReadAll(resp.Body)
+		buf, err := io.ReadAll(resp.Body)
 		if err != nil {
-			t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+			t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 			return
 		}
 
@@ -1924,7 +2143,7 @@ func testResponseStrings(t *testing.T, port int) {
 			},
 		}
 		if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
-			t.Errorf(diff)
+			t.Error(diff)
 		}
 	})
 }
@@ -1948,6 +2167,7 @@ func testRequestQueryParams(t *testing.T, port int) {
 	formValues.Add("repeated_string_value", "demo1")
 	formValues.Add("repeated_string_value", "demo2")
 	formValues.Add("optional_string_value", "optional-val")
+	mappedStringValueStr := fmt.Sprintf("mapped_string_value[%v]=%v", "map_key", "map_value")
 
 	testCases := []struct {
 		name           string
@@ -1961,13 +2181,16 @@ func testRequestQueryParams(t *testing.T, port int) {
 			name:        "get url query values",
 			httpMethod:  "GET",
 			contentType: "application/json",
-			apiURL:      fmt.Sprintf("http://localhost:%d/v1/example/a_bit_of_everything/params/get/foo?double_value=%v&bool_value=%v", port, 1234.56, true),
+			apiURL:      fmt.Sprintf("http://localhost:%d/v1/example/a_bit_of_everything/params/get/foo?double_value=%v&bool_value=%v&%v", port, 1234.56, true, mappedStringValueStr),
 			wantContent: &examplepb.ABitOfEverything{
 				SingleNested: &examplepb.ABitOfEverything_Nested{
 					Name: "foo",
 				},
 				DoubleValue: 1234.56,
 				BoolValue:   true,
+				MappedStringValue: map[string]string{
+					"map_key": "map_value",
+				},
 			},
 		},
 		{
@@ -2037,9 +2260,9 @@ func testRequestQueryParams(t *testing.T, port int) {
 			}
 			defer resp.Body.Close()
 
-			buf, err := ioutil.ReadAll(resp.Body)
+			buf, err := io.ReadAll(resp.Body)
 			if err != nil {
-				t.Errorf("ioutil.ReadAll(resp.Body) failed with %v; want success", err)
+				t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
 				return
 			}
 
@@ -2268,7 +2491,7 @@ func testNonStandardNames(t *testing.T, port int, method string, jsonBody string
 		t.Fatalf("failed to issue PATCH request: %v", err)
 	}
 
-	body, err := ioutil.ReadAll(patchResp.Body)
+	body, err := io.ReadAll(patchResp.Body)
 	if err != nil {
 		t.Errorf("patchResp body couldn't be read: %v", err)
 	}
@@ -2285,7 +2508,7 @@ func testNonStandardNames(t *testing.T, port int, method string, jsonBody string
 		t.Fatalf("marshaler.Unmarshal failed: %v", err)
 	}
 	if diff := cmp.Diff(got, want, protocmp.Transform()); diff != "" {
-		t.Errorf(diff)
+		t.Error(diff)
 	}
 }
 
@@ -2299,9 +2522,9 @@ func testABEExists(t *testing.T, port int) {
 		return
 	}
 	defer cresp.Body.Close()
-	buf, err := ioutil.ReadAll(cresp.Body)
+	buf, err := io.ReadAll(cresp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(cresp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(cresp.Body) failed with %v; want success", err)
 		return
 	}
 	if got, want := cresp.StatusCode, http.StatusOK; got != want {
@@ -2359,8 +2582,8 @@ func testABEOptions(t *testing.T, port int) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-        t.Fatal(err)
-    }
+		t.Fatal(err)
+	}
 	defer resp.Body.Close()
 	if got, want := resp.StatusCode, http.StatusOK; got != want {
 		t.Errorf("resp.StatusCode = %d; want %d", got, want)
@@ -2387,12 +2610,12 @@ func testABETrace(t *testing.T, port int) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-        t.Fatal(err)
-    }
+		t.Fatal(err)
+	}
 	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
+	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
-		t.Errorf("ioutil.ReadAll(cresp.Body) failed with %v; want success", err)
+		t.Errorf("io.ReadAll(cresp.Body) failed with %v; want success", err)
 		return
 	}
 	if got, want := resp.StatusCode, http.StatusOK; got != want {
@@ -2405,5 +2628,81 @@ func testABETrace(t *testing.T, port int) {
 	if err := marshaler.Unmarshal(buf, want); err != nil {
 		t.Errorf("marshaler.Unmarshal(%s, want) failed with %v; want success", buf, err)
 		return
+	}
+}
+
+func testEchoWithNonASCIIHeaderValues(t *testing.T, port int, apiPrefix string) {
+	apiURL := fmt.Sprintf("http://localhost:%d/%s/example/echo/myid", port, apiPrefix)
+
+	req, err := http.NewRequest("POST", apiURL, strings.NewReader("{}"))
+	if err != nil {
+		t.Errorf("http.NewRequest() = err: %v", err)
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Grpc-Metadata-Location", "Gjøvik")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.Post(%q) failed with %v; want success", apiURL, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
+		return
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+		t.Logf("%s", buf)
+	}
+
+	msg := new(examplepb.UnannotatedSimpleMessage)
+	if err := marshaler.Unmarshal(buf, msg); err != nil {
+		t.Errorf("marshaler.Unmarshal(%s, msg) failed with %v; want success", buf, err)
+		return
+	}
+	if got, want := msg.Id, "myid"; got != want {
+		t.Errorf("msg.Id = %q; want %q", got, want)
+	}
+}
+
+func testEchoWithInvalidHeaderKey(t *testing.T, port int, apiPrefix string) {
+	apiURL := fmt.Sprintf("http://localhost:%d/%s/example/echo/myid", port, apiPrefix)
+
+	req, err := http.NewRequest("POST", apiURL, strings.NewReader("{}"))
+	if err != nil {
+		t.Errorf("http.NewRequest() = err: %v", err)
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Grpc-Metadata-Foo+Bar", "Hello")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("http.Post(%q) failed with %v; want success", apiURL, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Errorf("io.ReadAll(resp.Body) failed with %v; want success", err)
+		return
+	}
+
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		t.Errorf("resp.StatusCode = %d; want %d", got, want)
+		t.Logf("%s", buf)
+	}
+
+	msg := new(examplepb.UnannotatedSimpleMessage)
+	if err := marshaler.Unmarshal(buf, msg); err != nil {
+		t.Errorf("marshaler.Unmarshal(%s, msg) failed with %v; want success", buf, err)
+		return
+	}
+	if got, want := msg.Id, "myid"; got != want {
+		t.Errorf("msg.Id = %q; want %q", got, want)
 	}
 }

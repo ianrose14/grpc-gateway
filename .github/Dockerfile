@@ -1,10 +1,10 @@
-FROM golang:1.18.3
+FROM golang:1.24.0
 
 ENV NVM_DIR="/usr/local/share/nvm"
 ENV NVM_SYMLINK_CURRENT=true \
     PATH=${NVM_DIR}/current/bin:${PATH}
 
-ARG VSCODE_SCRIPTS_VERSION="v0.193.0"
+ARG VSCODE_SCRIPTS_VERSION="v0.245.2"
 ARG NODE_VERSION="10"
 # Run some common installation scripts for a nicer dev environment. In order:
 # Used to create non-root user and update system packages
@@ -27,7 +27,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
         wget \
         unzip \
-        openjdk-11-jre \
+        openjdk-17-jre \
         bzip2 \
         patch && \
     apt-get clean -y && \
@@ -37,7 +37,7 @@ RUN apt-get update && \
 ENV SWAGGER_CODEGEN_VERSION=2.4.8
 RUN wget https://repo1.maven.org/maven2/io/swagger/swagger-codegen-cli/${SWAGGER_CODEGEN_VERSION}/swagger-codegen-cli-${SWAGGER_CODEGEN_VERSION}.jar \
     -O /usr/local/bin/swagger-codegen-cli.jar && \
-    echo -e '#!/bin/bash\njava -jar /usr/local/bin/swagger-codegen-cli.jar "$@"' > /usr/local/bin/swagger-codegen && \
+    echo '#!/bin/bash\njava -jar /usr/local/bin/swagger-codegen-cli.jar "$@"' > /usr/local/bin/swagger-codegen && \
 	chmod +x /usr/local/bin/swagger-codegen
 
 # Install Bazelisk as bazel to manage Bazel

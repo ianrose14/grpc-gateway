@@ -12,6 +12,7 @@ lint:
     DIRECTORY_SAME_PACKAGE:
       - examples/internal/proto/examplepb/a_bit_of_everything.proto
       - examples/internal/proto/examplepb/echo_service.proto
+      - examples/internal/proto/examplepb/enum_with_single_value.proto
       - examples/internal/proto/examplepb/flow_combination.proto
       - examples/internal/proto/examplepb/generate_unbound_methods.proto
       - examples/internal/proto/examplepb/generated_input.proto
@@ -23,6 +24,8 @@ lint:
       - examples/internal/proto/examplepb/unannotated_echo_service.proto
       - examples/internal/proto/examplepb/visibility_rule_echo_service.proto
       - examples/internal/proto/examplepb/use_go_template.proto
+      - examples/internal/proto/examplepb/ignore_comment.proto
+      - examples/internal/proto/examplepb/remove_internal_comment.proto
       - examples/internal/proto/examplepb/wrappers.proto
     ENUM_VALUE_PREFIX:
       - examples/internal/proto/examplepb/a_bit_of_everything.proto
@@ -48,6 +51,7 @@ lint:
       - examples/internal/helloworld/helloworld.proto
       - examples/internal/proto/examplepb/a_bit_of_everything.proto
       - examples/internal/proto/examplepb/echo_service.proto
+      - examples/internal/proto/examplepb/enum_with_single_value.proto
       - examples/internal/proto/examplepb/flow_combination.proto
       - examples/internal/proto/examplepb/generate_unbound_methods.proto
       - examples/internal/proto/examplepb/generated_input.proto
@@ -59,7 +63,10 @@ lint:
       - examples/internal/proto/examplepb/unannotated_echo_service.proto
       - examples/internal/proto/examplepb/visibility_rule_echo_service.proto
       - examples/internal/proto/examplepb/use_go_template.proto
+      - examples/internal/proto/examplepb/ignore_comment.proto
+      - examples/internal/proto/examplepb/remove_internal_comment.proto
       - examples/internal/proto/examplepb/wrappers.proto
+      - examples/internal/proto/oneofenum/oneof_enum.proto
       - examples/internal/proto/pathenum/path_enum.proto
       - examples/internal/proto/sub/message.proto
       - examples/internal/proto/sub2/message.proto
@@ -74,6 +81,7 @@ lint:
     PACKAGE_SAME_GO_PACKAGE:
       - examples/internal/proto/examplepb/a_bit_of_everything.proto
       - examples/internal/proto/examplepb/echo_service.proto
+      - examples/internal/proto/examplepb/enum_with_single_value.proto
       - examples/internal/proto/examplepb/flow_combination.proto
       - examples/internal/proto/examplepb/generate_unbound_methods.proto
       - examples/internal/proto/examplepb/generated_input.proto
@@ -83,6 +91,8 @@ lint:
       - examples/internal/proto/examplepb/unannotated_echo_service.proto
       - examples/internal/proto/examplepb/visibility_rule_echo_service.proto
       - examples/internal/proto/examplepb/use_go_template.proto
+      - examples/internal/proto/examplepb/ignore_comment.proto
+      - examples/internal/proto/examplepb/remove_internal_comment.proto
       - examples/internal/proto/examplepb/wrappers.proto
       - runtime/internal/examplepb/example.proto
       - runtime/internal/examplepb/non_standard_names.proto
@@ -92,6 +102,7 @@ lint:
       - examples/internal/helloworld/helloworld.proto
       - examples/internal/proto/examplepb/a_bit_of_everything.proto
       - examples/internal/proto/examplepb/echo_service.proto
+      - examples/internal/proto/examplepb/enum_with_single_value.proto
       - examples/internal/proto/examplepb/flow_combination.proto
       - examples/internal/proto/examplepb/generate_unbound_methods.proto
       - examples/internal/proto/examplepb/generated_input.proto
@@ -103,7 +114,10 @@ lint:
       - examples/internal/proto/examplepb/unannotated_echo_service.proto
       - examples/internal/proto/examplepb/visibility_rule_echo_service.proto
       - examples/internal/proto/examplepb/use_go_template.proto
+      - examples/internal/proto/examplepb/ignore_comment.proto
+      - examples/internal/proto/examplepb/remove_internal_comment.proto
       - examples/internal/proto/examplepb/wrappers.proto
+      - examples/internal/proto/oneofenum/oneof_enum.proto
       - examples/internal/proto/pathenum/path_enum.proto
       - examples/internal/proto/sub/message.proto
       - examples/internal/proto/sub2/message.proto
@@ -159,6 +173,8 @@ lint:
       - examples/internal/proto/examplepb/unannotated_echo_service.proto
       - examples/internal/proto/examplepb/visibility_rule_echo_service.proto
       - examples/internal/proto/examplepb/use_go_template.proto
+      - examples/internal/proto/examplepb/ignore_comment.proto
+      - examples/internal/proto/examplepb/remove_internal_comment.proto
       - examples/internal/proto/examplepb/wrappers.proto
       - runtime/internal/examplepb/non_standard_names.proto
     SERVICE_PASCAL_CASE:
@@ -169,6 +185,7 @@ lint:
       - examples/internal/proto/examplepb/flow_combination.proto
       - examples/internal/proto/examplepb/openapi_merge_a.proto
       - examples/internal/proto/examplepb/openapi_merge_b.proto
+  allow_comment_ignores: true
 # Note: the build configuration goes last in this
 # files so we can append excludes at push time.
 build:

@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "protoc-gen-openapiv2/options/openapiv2.proto",
+    "title": "examples/internal/proto/oneofenum/oneof_enum.proto",
     "version": "version not set"
   },
   "consumes": [
@@ -34,6 +34,7 @@
         "details": {
           "type": "array",
           "items": {
+            "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
         }

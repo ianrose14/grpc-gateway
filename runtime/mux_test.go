@@ -120,6 +120,19 @@ func TestMuxServeHTTP(t *testing.T) {
 		{
 			patterns: []stubPattern{
 				{
+					method: "POST",
+					ops:    []int{int(utilities.OpLitPush), 0, int(utilities.OpPush), 0, int(utilities.OpConcatN), 1, int(utilities.OpCapture), 1},
+					pool:   []string{"foo", "id"},
+					verb:   "archive",
+				},
+			},
+			reqMethod:  "DELETE",
+			reqPath:    "/foo/bar:archive",
+			respStatus: http.StatusNotImplemented,
+		},
+		{
+			patterns: []stubPattern{
+				{
 					method: "GET",
 					ops:    []int{int(utilities.OpLitPush), 0},
 					pool:   []string{"foo"},
@@ -192,6 +205,47 @@ func TestMuxServeHTTP(t *testing.T) {
 			},
 			respStatus:  http.StatusOK,
 			respContent: "GET /foo",
+		},
+		{
+			patterns: []stubPattern{
+				{
+					method: "GET",
+					ops:    []int{int(utilities.OpLitPush), 0},
+					pool:   []string{"foo"},
+				},
+			},
+			reqMethod: "POST",
+			reqPath:   "/foo",
+			headers: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			respStatus:  http.StatusOK,
+			respContent: "GET /foo",
+		},
+		{
+			patterns: []stubPattern{
+				{
+					method: "DELETE",
+					ops:    []int{int(utilities.OpLitPush), 0},
+					pool:   []string{"foo"},
+				},
+				{
+					method: "PUT",
+					ops:    []int{int(utilities.OpLitPush), 0},
+					pool:   []string{"foo"},
+				},
+				{
+					method: "PATCH",
+					ops:    []int{int(utilities.OpLitPush), 0},
+					pool:   []string{"foo"},
+				},
+			},
+			reqMethod: "POST",
+			reqPath:   "/foo",
+			headers: map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			respStatus: http.StatusNotImplemented,
 		},
 		{
 			patterns: []stubPattern{
@@ -465,6 +519,48 @@ func TestMuxServeHTTP(t *testing.T) {
 			unescapingMode: runtime.UnescapingModeAllCharacters,
 			respContent:    "POST /api/v1/{name=organizations/*}:action",
 		},
+		{
+			patterns: []stubPattern{
+				{
+					method: "POST",
+					ops: []int{
+						int(utilities.OpLitPush), 0,
+						int(utilities.OpLitPush), 1,
+						int(utilities.OpLitPush), 2,
+					},
+					pool: []string{"api", "v1", "organizations"},
+					verb: "verb",
+				},
+				{
+					method: "POST",
+					ops: []int{
+						int(utilities.OpLitPush), 0,
+						int(utilities.OpLitPush), 1,
+						int(utilities.OpLitPush), 2,
+					},
+					pool: []string{"api", "v1", "organizations"},
+					verb: "",
+				},
+				{
+					method: "POST",
+					ops: []int{
+						int(utilities.OpLitPush), 0,
+						int(utilities.OpLitPush), 1,
+						int(utilities.OpLitPush), 2,
+					},
+					pool: []string{"api", "v1", "dummies"},
+					verb: "verb",
+				},
+			},
+			reqMethod: "POST",
+			reqPath:   "/api/v1/organizations:verb",
+			headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+			respStatus:     http.StatusOK,
+			unescapingMode: runtime.UnescapingModeAllCharacters,
+			respContent:    "POST /api/v1/organizations:verb",
+		},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			var opts []runtime.ServeMuxOption
@@ -488,7 +584,8 @@ func TestMuxServeHTTP(t *testing.T) {
 			}
 
 			reqUrl := fmt.Sprintf("https://host.example%s", spec.reqPath)
-			r, err := http.NewRequest(spec.reqMethod, reqUrl, bytes.NewReader(nil))
+			ctx := context.Background()
+			r, err := http.NewRequestWithContext(ctx, spec.reqMethod, reqUrl, bytes.NewReader(nil))
 			if err != nil {
 				t.Fatalf("http.NewRequest(%q, %q, nil) failed with %v; want success", spec.reqMethod, reqUrl, err)
 			}
@@ -507,6 +604,19 @@ func TestMuxServeHTTP(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestServeHTTP_WithMethodOverrideAndFormParsing(t *testing.T) {
+	r := httptest.NewRequest("POST", "/foo", strings.NewReader("bar=hoge"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("X-HTTP-Method-Override", "GET")
+	w := httptest.NewRecorder()
+
+	runtime.NewServeMux().ServeHTTP(w, r)
+
+	if r.FormValue("bar") != "hoge" {
+		t.Error("form is not parsed")
 	}
 }
 
@@ -756,4 +866,64 @@ func (g *dummyHealthCheckClient) Check(ctx context.Context, r *grpc_health_v1.He
 
 func (g *dummyHealthCheckClient) Watch(ctx context.Context, r *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (grpc_health_v1.Health_WatchClient, error) {
 	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
+func TestServeMux_HandleMiddlewares(t *testing.T) {
+	var mws []int
+	mux := runtime.NewServeMux(runtime.WithMiddlewares(
+		func(next runtime.HandlerFunc) runtime.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+				mws = append(mws, 1)
+				next(w, r, pathParams)
+			}
+		},
+		func(next runtime.HandlerFunc) runtime.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+				mws = append(mws, 2)
+				next(w, r, pathParams)
+			}
+		},
+	))
+	err := mux.HandlePath("GET", "/test", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		if len(mws) == 0 {
+			t.Errorf("middlewares not called")
+		} else if mws[0] != 1 {
+			t.Errorf("first middleware is not called first")
+		} else if mws[1] != 2 {
+			t.Errorf("second middleware is not called the second")
+		}
+	})
+	if err != nil {
+		t.Errorf("The route test with method GET and path /test invalid, got %v", err)
+	}
+
+	r := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Errorf("request not processed")
+	}
+}
+
+func TestServeMux_InjectPattern(t *testing.T) {
+	mux := runtime.NewServeMux()
+	err := mux.HandlePath("GET", "/test", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+		p, ok := runtime.HTTPPattern(r.Context())
+		if !ok {
+			t.Errorf("pattern is not injected")
+		}
+		if p.String() != "/test" {
+			t.Errorf("pattern not /test")
+		}
+	})
+	if err != nil {
+		t.Errorf("The route test with method GET and path /test invalid, got %v", err)
+	}
+
+	r := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Errorf("request not processed")
+	}
 }
